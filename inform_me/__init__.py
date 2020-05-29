@@ -1,6 +1,6 @@
-#for executing the alert commands
-from subprocess import Popen, check_output
-#for setting up custom timer
+# for executing the alert commands
+import subprocess as sp
+# for setting up custom timer
 from threading import Timer
 
 #GLOBAL VARIABLES
@@ -8,6 +8,29 @@ __version__ = '0.1.2'
 m=0
 s=0
 msg=''
+
+
+def execute(command):
+    '''
+    Executes command as a subprocess.
+    
+    Possible format for command
+    1) String
+        ex: "cd Downloads" or "pip install numpy --user"
+
+    2) List of Strings (first string in List should be the name of command, rest are Arguments)
+        ex: ["cd", "Downloads"] or ["pip", "install", "numpy", "--user"]
+
+    Returns: CompletedProcess Object (https://docs.python.org/3.6/library/subprocess.html#subprocess.CompletedProcess)
+    '''
+
+    # convert to list of string format
+    if not isinstance(command, list):
+        command = command.split(' ')
+
+    # run command and capture output, redirect stderr to stdout
+    result = sp.run(command, stdin=None, stdout=sp.PIPE, stderr=sp.STDOUT, shell=False)
+    return result
 
 
 def inform(sound_duration=0.5, notification=True, popup=True, message='Your process has completed!'):
@@ -20,17 +43,25 @@ def inform(sound_duration=0.5, notification=True, popup=True, message='Your proc
     alert (bool): show the popup alert window if true, else do not show the popup window 
     '''
     try:
-        #make a sound
-        check_output(['( speaker-test -t sine -f 1000 )& pid=$! ; sleep '+str(sound_duration)+'s ; kill -9 $pid'], shell=True)
+        # make a sound 
+        # command: "timeout --kill-after=0.5s --signal=KILL 0.5s speaker-test --test sine --frequency 1000"
+        duration_str = "{dur}s".format(dur=sound_duration)
+        command = ["timeout", "--kill-after={dur}".format(dur=duration_str), "--signal=KILL",
+                   duration_str, "speaker-test", "--test", "sine", "--frequency", "1000"]
+        execute(command)
 
-        #notification box
+        # show notification box
+        # command: "notify-send 'Title' 'Message'"
         if notification:
-            Popen(['notify-send','Notification from inform_me', message])
+            command = ["notify-send", "Notification from inform_me", message]
+            execute(command)
 
-        #popup message
+        # show popup message
+        # command: "zenity --info --text 'message' --title 'Title' --width 250 --height 50"
         if popup:
-            Popen(['zenity --info --text '+'\''+message+'\''+' --title \'Popup message from inform_me\' --width \'250\' --height \'50\' 2> /dev/null'], shell=True)
-    
+            command = ["zenity", "--info", "--text", message, "--title",
+                       "Popup message from inform_me", "--width", "250", "--height", "50"]
+            execute(command)
     except Exception as e:
         print('An error occured.\n',e)
 
